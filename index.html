@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Video Download</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for loading spinner */
+        .spinner {
+            border-top-color: #3b82f6;
+            animation: spinner 1.5s linear infinite;
+        }
+        
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Progress bar animation */
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 py-8 px-4">
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 p-6 text-center">
+            <h1 class="text-3xl font-bold text-white">Instagram Video Download</h1>
+        </div>
+        
+        <!-- Search Section -->
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex gap-3">
+                <input
+                    type="text"
+                    id="urlInput"
+                    placeholder="Enter Instagram post URL"
+                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                    id="searchButton"
+                    class="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    Search
+                </button>
+            </div>
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="p-8 text-center hidden">
+            <div class="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full spinner"></div>
+            <p class="mt-4 text-gray-600">Loading post data...</p>
+        </div>
+        
+        <!-- Error Message -->
+        <div id="errorMessage" class="m-6 p-4 bg-red-50 text-red-700 rounded-lg hidden">
+            <p class="font-medium">Error:</p>
+            <p id="errorText"></p>
+        </div>
+        
+        <!-- Post Content -->
+        <div id="postContent" class="p-6 hidden">
+            <!-- Post Info -->
+            <div class="mb-8 pb-6 border-b border-gray-200">
+                <div class="flex items-center gap-3 mb-4">
+                    <h2 id="ownerName" class="text-xl font-bold"></h2>
+                    <span id="verifiedBadge" class="hidden flex items-center justify-center w-6 h-6 bg-blue-500 text-white rounded-full text-xs font-bold">✓</span>
+                    <span id="ownerUsername" class="text-gray-600"></span>
+                </div>
+                
+                <div class="flex gap-6 mb-4">
+                    <div class="flex items-center gap-1">
+                        <span>❤️</span>
+                        <span id="likesCount" class="font-medium"></span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span>💬</span>
+                        <span id="commentsCount" class="font-medium"></span>
+                    </div>
+                </div>
+                
+                <p id="caption" class="text-gray-800"></p>
+            </div>
+            
+            <!-- Media Grid -->
+            <div class="mb-8 pb-6 border-b border-gray-200">
+                <h3 class="text-lg font-bold mb-4">Media</h3>
+                <div id="mediaGrid" class="grid grid-cols-1 gap-6"></div>
+            </div>
+            
+            <!-- Comments Section -->
+            <div>
+                <h3 class="text-lg font-bold mb-4">Comments</h3>
+                <div id="commentsList" class="space-y-4"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Download Progress Modal -->
+    <div id="downloadProgressModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-semibold mb-4">Downloading Media</h3>
+            <div class="mb-2 flex justify-between">
+                <span id="downloadStatus" class="text-sm text-gray-600">Preparing download...</span>
+                <span id="downloadPercent" class="text-sm font-medium">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full progress-bar" style="width: 0%"></div>
+            </div>
+            <div class="mt-4 flex justify-end">
+                <button id="cancelDownload" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const urlInput = document.getElementById('urlInput');
+        const searchButton = document.getElementById('searchButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const postContent = document.getElementById('postContent');
+        
+        // Download progress elements
+        const downloadProgressModal = document.getElementById('downloadProgressModal');
+        const downloadStatus = document.getElementById('downloadStatus');
+        const downloadPercent = document.getElementById('downloadPercent');
+        const progressBar = document.getElementById('progressBar');
+        const cancelDownload = document.getElementById('cancelDownload');
+        
+        // Post info elements
+        const ownerName = document.getElementById('ownerName');
+        const verifiedBadge = document.getElementById('verifiedBadge');
+        const ownerUsername = document.getElementById('ownerUsername');
+        const likesCount = document.getElementById('likesCount');
+        const commentsCount = document.getElementById('commentsCount');
+        const caption = document.getElementById('caption');
+        
+        // Content containers
+        const mediaGrid = document.getElementById('mediaGrid');
+        const commentsList = document.getElementById('commentsList');
+        
+        // API Configuration
+        const API_BASE_URL = 'https://instagram.sajib.xyz';
+        
+        // Track download controller for cancellation
+        let downloadController = null;
+        
+        // Event Listeners
+        searchButton.addEventListener('click', handleSearch);
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSearch();
+        });
+        
+        cancelDownload.addEventListener('click', () => {
+            if (downloadController) {
+                downloadController.abort();
+                downloadController = null;
+                hideDownloadProgress();
+            }
+        });
+        
+        // Helper function to get file extension from URL or content type
+        function getFileExtension(url, contentType) {
+            // Try to get extension from URL
+            const urlParts = url.split('?')[0].split('.');
+            if (urlParts.length > 1) {
+                const ext = urlParts[urlParts.length - 1].toLowerCase();
+                if (['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov', 'webm'].includes(ext)) {
+                    return ext;
+                }
+            }
+            
+            // Try to get extension from content type
+            if (contentType) {
+                if (contentType.includes('jpeg') || contentType.includes('jpg')) return 'jpg';
+                if (contentType.includes('png')) return 'png';
+                if (contentType.includes('gif')) return 'gif';
+                if (contentType.includes('mp4')) return 'mp4';
+                if (contentType.includes('quicktime')) return 'mov';
+                if (contentType.includes('webm')) return 'webm';
+            }
+            
+            // Default extensions based on media type
+            return contentType?.includes('video') ? 'mp4' : 'jpg';
+        }
+        
+        // Helper function to get filename from URL
+        function getFilenameFromUrl(url) {
+            const urlParts = url.split('/');
+            const lastPart = urlParts[urlParts.length - 1];
+            const filenameParts = lastPart.split('?')[0].split('.');
+            if (filenameParts.length > 1) {
+                return filenameParts[0];
+            }
+            return 'instagram_media';
+        }
+        
+        // Show download progress modal
+        function showDownloadProgress() {
+            downloadProgressModal.classList.remove('hidden');
+            downloadStatus.textContent = 'Preparing download...';
+            downloadPercent.textContent = '0%';
+            progressBar.style.width = '0%';
+        }
+        
+        // Hide download progress modal
+        function hideDownloadProgress() {
+            setTimeout(() => {
+                downloadProgressModal.classList.add('hidden');
+            }, 500);
+        }
+        
+        // Update download progress
+        function updateDownloadProgress(percent) {
+            downloadPercent.textContent = `${percent}%`;
+            progressBar.style.width = `${percent}%`;
+            
+            if (percent < 100) {
+                downloadStatus.textContent = 'Downloading...';
+            } else {
+                downloadStatus.textContent = 'Processing download...';
+            }
+        }
+        
+        // Main search function
+        async function handleSearch() {
+            const url = urlInput.value.trim();
+            if (!url) return;
+            
+            // Reset UI
+            loadingIndicator.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+            postContent.classList.add('hidden');
+            mediaGrid.innerHTML = '';
+            commentsList.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/instagram/post`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url })
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch post info');
+                const data = await response.json();
+                
+                // Display the data
+                displayPostData(data);
+                postContent.classList.remove('hidden');
+            } catch (err) {
+                errorText.textContent = err.message || 'An error occurred';
+                errorMessage.classList.remove('hidden');
+            } finally {
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+        
+        // Download media function using backend proxy with progress tracking
+        async function downloadMedia(mediaUrl, mediaType = 'video') {
+            try {
+                // Show progress modal
+                showDownloadProgress();
+                
+                // Create a new AbortController for this download
+                downloadController = new AbortController();
+                const signal = downloadController.signal;
+                
+                // Use the backend proxy endpoint to fetch the media
+                const proxyUrl = `${API_BASE_URL}/api/instagram/media?mediaUrl=${encodeURIComponent(mediaUrl)}`;
+                
+                const response = await fetch(proxyUrl, { signal });
+                
+                if (!response.ok) throw new Error('Failed to download media');
+                
+                // Get content type and content length
+                const contentType = response.headers.get('Content-Type');
+                const contentLength = response.headers.get('Content-Length');
+                
+                // Generate filename
+                const filename = `${getFilenameFromUrl(mediaUrl)}.${getFileExtension(mediaUrl, contentType)}`;
+                
+                // Get the reader from the response body stream
+                const reader = response.body.getReader();
+                
+                // Create a new readable stream to track progress
+                const stream = new ReadableStream({
+                    start(controller) {
+                        let receivedLength = 0;
+                        
+                        function pump() {
+                            return reader.read().then(({ done, value }) => {
+                                // When no more data, close the stream
+                                if (done) {
+                                    controller.close();
+                                    return;
+                                }
+                                
+                                // Enqueue the data
+                                controller.enqueue(value);
+                                
+                                // Update progress
+                                receivedLength += value.length;
+                                if (contentLength) {
+                                    const percent = Math.round((receivedLength / contentLength) * 100);
+                                    updateDownloadProgress(percent);
+                                } else {
+                                    // If content length is not available, show indeterminate progress
+                                    updateDownloadProgress(50);
+                                }
+                                
+                                // Continue reading
+                                return pump();
+                            });
+                        }
+                        
+                        return pump();
+                    }
+                });
+                
+                // Create a new response from our stream
+                const newResponse = new Response(stream);
+                
+                // Get blob from response
+                const blob = await newResponse.blob();
+                
+                // Update progress to 100%
+                updateDownloadProgress(100);
+                
+                // Create download link
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                
+                // Clean up
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(blobUrl);
+                    hideDownloadProgress();
+                    downloadController = null;
+                }, 100);
+            } catch (err) {
+                console.error('Download error:', err);
+                if (err.name === 'AbortError') {
+                    console.log('Download was cancelled');
+                } else {
+                    alert(`Failed to download: ${err.message}`);
+                }
+                hideDownloadProgress();
+                downloadController = null;
+            }
+        }
+        
+        // Create video player element
+        function createVideoPlayer(media, index) {
+            const container = document.createElement('div');
+            container.className = 'bg-gray-900 rounded-xl overflow-hidden shadow-lg';
+            
+            // Video element
+            const videoWrapper = document.createElement('div');
+            videoWrapper.className = 'relative';
+            
+            const video = document.createElement('video');
+            // Use the backend proxy URL for the video source
+            video.src = `${API_BASE_URL}/api/instagram/media?mediaUrl=${encodeURIComponent(media.url)}`;
+            if (media.thumbnail) {
+                // Also proxy the thumbnail
+                video.poster = `${API_BASE_URL}/api/instagram/media?mediaUrl=${encodeURIComponent(media.thumbnail)}`;
+            }
+            video.className = 'w-full h-auto max-h-[500px]';
+            video.controls = true;
+            video.controlsList = 'nodownload';
+            
+            videoWrapper.appendChild(video);
+            container.appendChild(videoWrapper);
+            
+            // Video info bar
+            const infoBar = document.createElement('div');
+            infoBar.className = 'p-4 bg-gray-800';
+            
+            const infoContent = document.createElement('div');
+            infoContent.className = 'flex items-center justify-between';
+            
+            // View count
+            const viewCount = document.createElement('div');
+            viewCount.className = 'flex items-center text-white';
+            viewCount.innerHTML = `
+                <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                </svg>
+                <span class="font-medium">${media.video_view_count ? media.video_view_count.toLocaleString() : '0'} views</span>
+            `;
+            
+            // Download button
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'flex items-center text-white hover:text-gray-300 transition-colors focus:outline-none';
+            downloadBtn.setAttribute('aria-label', 'Download video');
+            downloadBtn.innerHTML = `
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+            `;
+            downloadBtn.addEventListener('click', () => downloadMedia(media.url, 'video'));
+            
+            infoContent.appendChild(viewCount);
+            infoContent.appendChild(downloadBtn);
+            infoBar.appendChild(infoContent);
+            container.appendChild(infoBar);
+            
+            return container;
+        }
+        
+        // Create image viewer element
+        function createImageViewer(media, index) {
+            const container = document.createElement('div');
+            container.className = 'rounded-xl overflow-hidden shadow-lg relative';
+            
+            const img = document.createElement('img');
+            // Use the backend proxy URL for the image source
+            img.src = `${API_BASE_URL}/api/instagram/media?mediaUrl=${encodeURIComponent(media.url)}`;
+            img.alt = 'Instagram post';
+            img.className = 'w-full h-auto';
+            
+            // Download button
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'absolute top-3 right-3 w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors';
+            downloadBtn.setAttribute('title', 'Download image');
+            downloadBtn.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+            `;
+            downloadBtn.addEventListener('click', () => downloadMedia(media.url, 'image'));
+            
+            container.appendChild(img);
+            container.appendChild(downloadBtn);
+            
+            return container;
+        }
+        
+        // Display post data
+        function displayPostData(data) {
+            // Display post info
+            ownerName.textContent = data.post_info.owner_fullname;
+            ownerUsername.textContent = `@${data.post_info.owner_username}`;
+            likesCount.textContent = data.post_info.likes.toLocaleString();
+            commentsCount.textContent = data.post_info.comments_count;
+            caption.textContent = data.post_info.caption;
+            
+            // Show verified badge if applicable
+            if (data.post_info.is_verified) {
+                verifiedBadge.classList.remove('hidden');
+            } else {
+                verifiedBadge.classList.add('hidden');
+            }
+            
+            // Display media
+            data.media_details.forEach((media, index) => {
+                if (media.type === 'video') {
+                    mediaGrid.appendChild(createVideoPlayer(media, index));
+                } else {
+                    mediaGrid.appendChild(createImageViewer(media, index));
+                }
+            });
+            
+            // Display comments
+            data.comments.forEach(comment => {
+                const commentEl = document.createElement('div');
+                commentEl.className = 'bg-gray-50 p-4 rounded-lg';
+                
+                const commentHeader = document.createElement('div');
+                commentHeader.className = 'flex justify-between items-center mb-2';
+                
+                const username = document.createElement('span');
+                username.className = 'font-bold';
+                username.textContent = comment.username;
+                
+                const date = document.createElement('span');
+                date.className = 'text-sm text-gray-500';
+                date.textContent = new Date(comment.created_at).toLocaleDateString();
+                
+                const text = document.createElement('p');
+                text.className = 'text-gray-800';
+                text.textContent = comment.text;
+                
+                commentHeader.appendChild(username);
+                commentHeader.appendChild(date);
+                commentEl.appendChild(commentHeader);
+                commentEl.appendChild(text);
+                commentsList.appendChild(commentEl);
+            });
+        }
+    </script>
+</body>
+</html>
