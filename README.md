@@ -28,7 +28,7 @@ Allows users to fetch post info (images, videos, captions, likes, comments) and 
 ## Installation
 
 ```bash
-git clone https://github.com/github/instagram-downloader.git
+git clone https://github.com/sajibhub/instagram-downloader.git
 cd instagram-downloader
 npm install
 node server.js
