@@ -1434,110 +1434,182 @@
 
       // Create video player element
       function createVideoPlayer(media, index) {
+        // Main container
         const container = document.createElement("div");
         container.className =
           "bg-gray-900 rounded-xl overflow-hidden shadow-lg hover-lift animate-fadeIn card-hover";
         container.style.animationDelay = `${index * 0.1}s`;
 
+        // Vertical aspect ratio container for Instagram reels (9:16)
+        const aspectRatioContainer = document.createElement("div");
+        aspectRatioContainer.className = "relative w-full";
+        aspectRatioContainer.style.paddingBottom = "177.78%"; // 9:16 aspect ratio
+
         const videoWrapper = document.createElement("div");
-        videoWrapper.className = "video-container";
+        videoWrapper.className = "absolute inset-0 video-container";
 
-        const videoPlayerContainer = document.createElement("div");
-        videoPlayerContainer.className = "video-wrapper";
-
+        // Video element
         const video = document.createElement("video");
-        // Use the streaming endpoint instead of direct URL
         video.src = getStreamUrl(media.url);
-        if (media.thumbnail) {
-          video.poster = getStreamUrl(media.thumbnail);
-        }
-        video.className = "video-player";
+        if (media.thumbnail) video.poster = getStreamUrl(media.thumbnail);
+        video.className = "w-full h-full object-cover";
         video.preload = "metadata";
+        video.setAttribute("playsinline", "");
 
-        // Custom controls container
+        // Controls container
         const controlsContainer = document.createElement("div");
-        controlsContainer.className = "video-controls";
+        controlsContainer.className =
+          "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 transition-all duration-300 transform translate-y-0";
 
-        // Play/pause button
+        // Play/pause button with animation
         const playPauseBtn = document.createElement("button");
-        playPauseBtn.className = "video-button";
-        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+        playPauseBtn.className =
+          "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-sm rounded-full w-16 h-16 flex items-center justify-center text-white hover:bg-white/30 transition-all duration-300 hover:scale-110 active:scale-95";
+        playPauseBtn.innerHTML =
+          '<i class="fas fa-play text-2xl ml-1 transition-transform duration-200"></i>';
 
-        // Progress bar
+        // Progress bar with animation
         const progressBar = document.createElement("div");
-        progressBar.className = "video-progress";
+        progressBar.className =
+          "relative h-1 bg-gray-600 rounded-full cursor-pointer mb-2 group";
 
         const progressFilled = document.createElement("div");
-        progressFilled.className = "video-progress-filled";
+        progressFilled.className =
+          "absolute left-0 top-0 h-full bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-100";
+        progressBar.appendChild(progressFilled);
 
-        // Time display
+        // Progress handle that appears on hover
+        const progressHandle = document.createElement("div");
+        progressHandle.className =
+          "absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 scale-0 group-hover:scale-100";
+        progressFilled.appendChild(progressHandle);
+
+        // Bottom controls container
+        const bottomControls = document.createElement("div");
+        bottomControls.className =
+          "flex items-center justify-between text-white text-xs";
+
+        // Time display on the left with animation
         const timeDisplay = document.createElement("span");
-        timeDisplay.className = "video-time";
+        timeDisplay.className =
+          "mr-3 font-medium transition-colors duration-200 hover:text-red-400";
         timeDisplay.textContent = "0:00 / 0:00";
 
-        // Volume controls
+        // Volume control on the right with animation
         const volumeContainer = document.createElement("div");
-        volumeContainer.className = "video-volume";
+        volumeContainer.className = "flex items-center group";
 
         const volumeBtn = document.createElement("button");
-        volumeBtn.className = "video-button";
-        volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        volumeBtn.className =
+          "text-white hover:text-red-400 transition-all duration-200 mr-2 transform hover:scale-110 active:scale-95";
+        volumeBtn.innerHTML =
+          '<i class="fas fa-volume-up transition-transform duration-200"></i>';
 
         const volumeSlider = document.createElement("input");
         volumeSlider.type = "range";
         volumeSlider.min = "0";
         volumeSlider.max = "1";
-        volumeSlider.step = "0.1";
+        volumeSlider.step = "0.05";
         volumeSlider.value = "1";
-        volumeSlider.className = "volume-slider";
+        volumeSlider.className =
+          "w-16 h-1 bg-gray-600 rounded-full appearance-none cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-200 volume-slider";
 
-        // Fullscreen button
-        const fullscreenBtn = document.createElement("button");
-        fullscreenBtn.className = "video-button";
-        fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-
-        // Download button
-        const downloadBtn = document.createElement("button");
-        downloadBtn.className = "video-download-btn";
-        downloadBtn.innerHTML = '<i class="fas fa-download"></i>';
-        downloadBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const baseName = media.filename_suggest || `instagram-video-${index}`;
-          downloadMedia(media.url, "video", baseName);
-        });
-
-        // Assemble controls
         volumeContainer.appendChild(volumeBtn);
         volumeContainer.appendChild(volumeSlider);
 
-        controlsContainer.appendChild(playPauseBtn);
-        controlsContainer.appendChild(progressBar);
-        controlsContainer.appendChild(timeDisplay);
-        controlsContainer.appendChild(volumeContainer);
-        controlsContainer.appendChild(fullscreenBtn);
+        // Assemble bottom controls
+        bottomControls.appendChild(timeDisplay);
+        bottomControls.appendChild(volumeContainer);
 
-        progressBar.appendChild(progressFilled);
+        // Assemble controls
+        controlsContainer.appendChild(progressBar);
+        controlsContainer.appendChild(bottomControls);
+
+        // Info bar
+        const infoBar = document.createElement("div");
+        infoBar.className =
+          "p-3 bg-gray-800 flex items-center justify-between transition-all duration-300 hover:bg-gray-750";
+
+        // View count on the left with animation
+        const viewCount = document.createElement("div");
+        viewCount.className =
+          "flex items-center text-white text-sm group cursor-pointer";
+        viewCount.innerHTML = `
+    <i class="fas fa-eye mr-2 transition-transform duration-200 group-hover:scale-110"></i>
+    <span class="font-medium transition-colors duration-200 group-hover:text-red-400">${media.video_view_count ? Number(media.video_view_count).toLocaleString() : "0"} views</span>
+  `;
+
+        // Action buttons container
+        const actionButtons = document.createElement("div");
+        actionButtons.className = "flex items-center space-x-2";
+
+        // Download button with text and animation
+        const downloadBtn = document.createElement("button");
+        downloadBtn.className =
+          "flex items-center space-x-2 text-white bg-red-600 hover:bg-red-700 transition-all duration-300 px-3 py-2 rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 active:scale-95";
+        downloadBtn.setAttribute("aria-label", "Download video");
+        downloadBtn.innerHTML = `
+    <i class="fas fa-download transition-transform duration-200"></i>
+    <span class="font-medium">Download</span>
+  `;
+        downloadBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const baseName = media.filename_suggest || `instagram-reel-${index}`;
+          downloadMedia(media.url, "video", baseName);
+
+          // Add a pulse animation on click
+          downloadBtn.classList.add("animate-pulse");
+          setTimeout(() => {
+            downloadBtn.classList.remove("animate-pulse");
+          }, 600);
+        });
+
+        // Fullscreen button with animation
+        const fullscreenBtn = document.createElement("button");
+        fullscreenBtn.className =
+          "flex items-center text-white hover:text-red-400 transition-all duration-300 p-2 rounded-lg hover:bg-white/10 transform hover:scale-110 active:scale-95";
+        fullscreenBtn.setAttribute("aria-label", "Fullscreen");
+        fullscreenBtn.innerHTML = `
+    <i class="fas fa-expand transition-transform duration-200"></i>
+  `;
+
+        // Assemble action buttons
+        actionButtons.appendChild(downloadBtn);
+        actionButtons.appendChild(fullscreenBtn);
+
+        // Assemble player
+        videoWrapper.appendChild(video);
+        videoWrapper.appendChild(playPauseBtn);
+        videoWrapper.appendChild(controlsContainer);
+        aspectRatioContainer.appendChild(videoWrapper);
+        container.appendChild(aspectRatioContainer);
+
+        // Add elements to info bar
+        infoBar.appendChild(viewCount);
+        infoBar.appendChild(actionButtons);
+        container.appendChild(infoBar);
 
         // Video event listeners
         let playStartTime = null;
         let totalWatchTime = 0;
+        let isDragging = false;
 
         video.addEventListener("loadedmetadata", () => {
-          const duration = formatTime(video.duration);
-          timeDisplay.textContent = `0:00 / ${duration}`;
+          timeDisplay.textContent = `0:00 / ${formatTime(video.duration)}`;
         });
 
         video.addEventListener("timeupdate", () => {
-          const percent = (video.currentTime / video.duration) * 100;
-          progressFilled.style.width = `${percent}%`;
-          timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+          if (!isDragging) {
+            const percent = (video.currentTime / video.duration) * 100;
+            progressFilled.style.width = `${percent}%`;
+            timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+          }
         });
 
         video.addEventListener("play", () => {
-          playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+          playPauseBtn.innerHTML =
+            '<i class="fas fa-pause text-2xl transition-transform duration-200"></i>';
           playStartTime = Date.now();
-
-          // Track video play
           videoPlayCount++;
           trackAnalytics("video_play", {
             play_count: videoPlayCount,
@@ -1546,7 +1618,8 @@
         });
 
         video.addEventListener("pause", () => {
-          playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+          playPauseBtn.innerHTML =
+            '<i class="fas fa-play text-2xl ml-1 transition-transform duration-200"></i>';
           if (playStartTime) {
             totalWatchTime += Date.now() - playStartTime;
             playStartTime = null;
@@ -1554,123 +1627,216 @@
         });
 
         video.addEventListener("ended", () => {
-          playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+          playPauseBtn.innerHTML =
+            '<i class="fas fa-play text-2xl ml-1 transition-transform duration-200"></i>';
           if (playStartTime) {
             totalWatchTime += Date.now() - playStartTime;
             playStartTime = null;
           }
-
-          // Track video completion
           trackAnalytics("video_complete", {
             video_index: index,
-            total_watch_time: Math.round(totalWatchTime / 1000), // in seconds
+            total_watch_time: Math.round(totalWatchTime / 1000),
           });
         });
 
         // Control event listeners
         playPauseBtn.addEventListener("click", () => {
-          if (video.paused) {
-            video.play();
-          } else {
-            video.pause();
+          video.paused ? video.play() : video.pause();
+
+          // Add bounce animation
+          playPauseBtn.classList.add("animate-bounce");
+          setTimeout(() => {
+            playPauseBtn.classList.remove("animate-bounce");
+          }, 500);
+        });
+
+        // Progress bar interaction
+        const updateProgress = (e) => {
+          const rect = progressBar.getBoundingClientRect();
+          const pos = (e.clientX - rect.left) / rect.width;
+          video.currentTime = pos * video.duration;
+        };
+
+        progressBar.addEventListener("mousedown", (e) => {
+          isDragging = true;
+          progressBar.classList.add("scale-y-150");
+          updateProgress(e);
+        });
+
+        document.addEventListener("mousemove", (e) => {
+          if (isDragging) updateProgress(e);
+        });
+
+        document.addEventListener("mouseup", () => {
+          if (isDragging) {
+            isDragging = false;
+            progressBar.classList.remove("scale-y-150");
           }
         });
 
-        progressBar.addEventListener("click", (e) => {
-          const pos =
-            (e.pageX - progressBar.getBoundingClientRect().left) /
-            progressBar.offsetWidth;
-          video.currentTime = pos * video.duration;
+        // Touch support
+        progressBar.addEventListener("touchstart", (e) => {
+          isDragging = true;
+          const touch = e.touches[0];
+          updateProgress(touch);
         });
 
+        document.addEventListener("touchmove", (e) => {
+          if (isDragging) {
+            const touch = e.touches[0];
+            updateProgress(touch);
+          }
+        });
+
+        document.addEventListener("touchend", () => {
+          isDragging = false;
+        });
+
+        // Volume control with animation
         volumeBtn.addEventListener("click", () => {
           if (video.volume > 0) {
             video.volume = 0;
             volumeSlider.value = 0;
-            volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+            volumeBtn.innerHTML =
+              '<i class="fas fa-volume-mute transition-transform duration-200"></i>';
           } else {
             video.volume = 1;
             volumeSlider.value = 1;
-            volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+            volumeBtn.innerHTML =
+              '<i class="fas fa-volume-up transition-transform duration-200"></i>';
           }
+
+          // Add rotation animation
+          volumeBtn.querySelector("i").classList.add("animate-spin");
+          setTimeout(() => {
+            volumeBtn.querySelector("i").classList.remove("animate-spin");
+          }, 300);
         });
 
         volumeSlider.addEventListener("input", () => {
           video.volume = volumeSlider.value;
-          if (video.volume == 0) {
-            volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
-          } else if (video.volume < 0.5) {
-            volumeBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
-          } else {
-            volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
-          }
+          const icon =
+            video.volume == 0
+              ? "fa-volume-mute"
+              : video.volume < 0.5
+                ? "fa-volume-down"
+                : "fa-volume-up";
+          volumeBtn.innerHTML = `<i class="fas ${icon} transition-transform duration-200"></i>`;
         });
 
+        // Fullscreen with animation
         fullscreenBtn.addEventListener("click", () => {
-          if (video.requestFullscreen) {
-            video.requestFullscreen();
-          } else if (video.webkitRequestFullscreen) {
-            video.webkitRequestFullscreen();
-          } else if (video.msRequestFullscreen) {
-            video.msRequestFullscreen();
+          if (!document.fullscreenElement) {
+            videoWrapper.requestFullscreen();
+            fullscreenBtn.innerHTML =
+              '<i class="fas fa-compress transition-transform duration-200"></i>';
+          } else {
+            document.exitFullscreen();
+            fullscreenBtn.innerHTML =
+              '<i class="fas fa-expand transition-transform duration-200"></i>';
           }
+
+          // Add flip animation
+          fullscreenBtn.querySelector("i").classList.add("animate-flip");
+          setTimeout(() => {
+            fullscreenBtn.querySelector("i").classList.remove("animate-flip");
+          }, 300);
         });
 
-        // Show controls when hovering over video
+        // Show/hide controls with animation
+        let controlsTimeout;
+
+        const showControls = () => {
+          controlsContainer.classList.remove("opacity-0", "translate-y-2");
+          controlsContainer.classList.add("opacity-100", "translate-y-0");
+          playPauseBtn.classList.remove("opacity-0", "scale-90");
+          playPauseBtn.classList.add("opacity-100", "scale-100");
+        };
+
+        const hideControls = () => {
+          if (!video.paused) {
+            controlsContainer.classList.remove("opacity-100", "translate-y-0");
+            controlsContainer.classList.add("opacity-0", "translate-y-2");
+            playPauseBtn.classList.remove("opacity-100", "scale-100");
+            playPauseBtn.classList.add("opacity-0", "scale-90");
+          }
+        };
+
         videoWrapper.addEventListener("mouseenter", () => {
-          controlsContainer.classList.add("show");
+          showControls();
+          clearTimeout(controlsTimeout);
         });
 
         videoWrapper.addEventListener("mouseleave", () => {
-          if (!video.paused) {
-            controlsContainer.classList.remove("show");
+          controlsTimeout = setTimeout(hideControls, 2000);
+        });
+
+        video.addEventListener("touchstart", () => {
+          showControls();
+          clearTimeout(controlsTimeout);
+          controlsTimeout = setTimeout(hideControls, 3000);
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener("keydown", (e) => {
+          if (!isElementInViewport(video)) return;
+
+          switch (e.key) {
+            case " ":
+              e.preventDefault();
+              video.paused ? video.play() : video.pause();
+              break;
+            case "ArrowRight":
+              video.currentTime += 5;
+              break;
+            case "ArrowLeft":
+              video.currentTime -= 5;
+              break;
+            case "ArrowUp":
+              video.volume = Math.min(1, video.volume + 0.1);
+              volumeSlider.value = video.volume;
+              break;
+            case "ArrowDown":
+              video.volume = Math.max(0, video.volume - 0.1);
+              volumeSlider.value = video.volume;
+              break;
+            case "f":
+              fullscreenBtn.click();
+              break;
+            case "m":
+              volumeBtn.click();
+              break;
           }
         });
-
-        // Assemble video player
-        videoPlayerContainer.appendChild(video);
-        videoWrapper.appendChild(videoPlayerContainer);
-        videoWrapper.appendChild(controlsContainer);
-        videoWrapper.appendChild(downloadBtn);
-        container.appendChild(videoWrapper);
-
-        // Info bar
-        const infoBar = document.createElement("div");
-        infoBar.className = "p-4 bg-gray-800";
-
-        const infoContent = document.createElement("div");
-        infoContent.className = "flex items-center justify-between";
-
-        const viewCount = document.createElement("div");
-        viewCount.className = "flex items-center text-white";
-        viewCount.innerHTML = `
-          <i class="fas fa-eye mr-2"></i>
-          <span class="font-medium">${media.video_view_count ? Number(media.video_view_count).toLocaleString() : "0"} views</span>
-        `;
-
-        const downloadBtn2 = document.createElement("button");
-        downloadBtn2.className =
-          "flex items-center text-white hover:text-gray-300 transition-colors focus:outline-none p-2 rounded-full hover:bg-white/10";
-        downloadBtn2.setAttribute("aria-label", "Download video");
-        downloadBtn2.innerHTML = `
-          <i class="fas fa-download"></i>
-        `;
-
-        // download directly from CDN
-        downloadBtn2.addEventListener("click", () => {
-          // suggest filename username + index if available
-          const baseName = media.filename_suggest || `instagram-video-${index}`;
-          downloadMedia(media.url, "video", baseName);
-        });
-
-        infoContent.appendChild(viewCount);
-        infoContent.appendChild(downloadBtn2);
-        infoBar.appendChild(infoContent);
-        container.appendChild(infoBar);
 
         return container;
       }
 
+      // Helper function to check if element is in viewport
+      function isElementInViewport(el) {
+        const rect = el.getBoundingClientRect();
+        return (
+          rect.top >= 0 &&
+          rect.left >= 0 &&
+          rect.bottom <=
+            (window.innerHeight || document.documentElement.clientHeight) &&
+          rect.right <=
+            (window.innerWidth || document.documentElement.clientWidth)
+        );
+      }
+
+      // Add custom animations to your CSS
+      const style = document.createElement("style");
+      style.textContent = `
+  @keyframes flip {
+    0% { transform: rotateY(0deg); }
+    100% { transform: rotateY(360deg); }
+  }
+  .animate-flip {
+    animation: flip 0.3s ease-in-out;
+  }
+`;
+      document.head.appendChild(style);
       // Create image viewer element
       function createImageViewer(media, index) {
         const container = document.createElement("div");
