@@ -9,7 +9,6 @@ import rateLimit from 'express-rate-limit';
 import NodeCache from 'node-cache';
 import compression from 'compression';
 
-
 // Configuration - these should be moved to environment variables in production
 const config = {
   PORT: process.env.PORT || 5000,
@@ -18,8 +17,13 @@ const config = {
   REQUEST_TIMEOUT: process.env.REQUEST_TIMEOUT || 10000, // 10 seconds
   MAX_REQUESTS_PER_MINUTE: process.env.MAX_REQUESTS_PER_MINUTE || 30,
   USER_AGENT: process.env.USER_AGENT || 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+  // Alternative document IDs to try if the primary one fails
+  ALTERNATIVE_DOCUMENT_IDS: [
+    '8845758582119845',
+    '2394699020250822',
+    '2805604155526798'
+  ]
 };
-
 
 const app = express();
 app.use(compression())
@@ -54,12 +58,14 @@ app.get('/health', (req, res) => {
 // -----------------------------
 // Helper: fetch Instagram post data
 // -----------------------------
-const instagramGetPost = async (urlMedia) => {
+const instagramGetPost = async (urlMedia, documentId = config.DOCUMENT_ID) => {
   try {
     // Check cache first
     const cacheKey = `instagram:${urlMedia}`;
     const cachedData = cache.get(cacheKey);
-   
+    if (cachedData) {
+      return cachedData;
+    }
 
     // Try to resolve share redirects (if the URL uses /share/)
     if (urlMedia.includes('/share/')) {
@@ -77,10 +83,33 @@ const instagramGetPost = async (urlMedia) => {
       }
     }
 
-    const splitUrl = urlMedia.split('/');
-    const postTags = ['p', 'reel', 'tv', 'reels'];
-    const tagIndex = splitUrl.findIndex((item) => postTags.includes(item));
-    const shortcode = tagIndex >= 0 ? splitUrl[tagIndex + 1] : null;
+    // Extract shortcode from URL with improved parsing
+    let shortcode = null;
+    
+    // Try different URL patterns
+    const urlPatterns = [
+      /instagram\.com\/p\/([A-Za-z0-9_-]+)/i,
+      /instagram\.com\/reel\/([A-Za-z0-9_-]+)/i,
+      /instagram\.com\/tv\/([A-Za-z0-9_-]+)/i,
+      /instagram\.com\/reels\/([A-Za-z0-9_-]+)/i
+    ];
+    
+    for (const pattern of urlPatterns) {
+      const match = urlMedia.match(pattern);
+      if (match && match[1]) {
+        shortcode = match[1];
+        break;
+      }
+    }
+    
+    // Fallback to original method if patterns don't match
+    if (!shortcode) {
+      const splitUrl = urlMedia.split('/');
+      const postTags = ['p', 'reel', 'tv', 'reels'];
+      const tagIndex = splitUrl.findIndex((item) => postTags.includes(item));
+      shortcode = tagIndex >= 0 ? splitUrl[tagIndex + 1] : null;
+    }
+    
     if (!shortcode) throw new Error('Invalid Instagram URL (shortcode not found)');
 
     // Get a CSRF token (best-effort): request main page and extract csrftoken cookie
@@ -100,7 +129,7 @@ const instagramGetPost = async (urlMedia) => {
         hoisted_comment_id: null,
         hoisted_reply_id: null,
       }),
-      doc_id: config.DOCUMENT_ID,
+      doc_id: documentId,
     });
 
     const headers = {
@@ -114,6 +143,7 @@ const instagramGetPost = async (urlMedia) => {
       'Sec-Fetch-Dest': 'empty',
       'Sec-Fetch-Mode': 'cors',
       'Sec-Fetch-Site': 'same-origin',
+      'X-IG-App-ID': '936619743392459', // Add Instagram app ID
     };
     if (csrfToken) headers['X-CSRFToken'] = csrfToken;
 
@@ -124,14 +154,90 @@ const instagramGetPost = async (urlMedia) => {
       validateStatus: (s) => s >= 200 && s < 500,
     });
 
-    if (!graphqlResp.data) throw new Error('No data from Instagram GraphQL');
+    if (!graphqlResp.data) {
+      console.error('No data from Instagram GraphQL:', graphqlResp.status, graphqlResp.statusText);
+      throw new Error('No data from Instagram GraphQL');
+    }
 
-    // The shape may vary. Try to read the known path, otherwise fail politely.
-    const postData = graphqlResp.data.data?.xdt_shortcode_media || 
-                   graphqlResp.data.data?.shortcode_media ||
-                   graphqlResp.data.data?.media;
-                   
-    if (!postData) throw new Error('Only posts/reels supported or Instagram changed response format');
+    // Log the response structure for debugging (only in development)
+    if (process.env.NODE_ENV !== 'production') {
+      if (graphqlResp.data.data) {
+      }
+    }
+
+    // Try multiple paths to extract post data
+    let postData = null;
+    const possiblePaths = [
+      'data.xdt_shortcode_media',
+      'data.shortcode_media',
+      'data.media',
+      'data.xdt_api_v1_media',
+      'data.xdt_api_v1_shortcode_media'
+    ];
+    
+    for (const path of possiblePaths) {
+      const pathParts = path.split('.');
+      let current = graphqlResp.data;
+      
+      for (const part of pathParts) {
+        if (current && current[part]) {
+          current = current[part];
+        } else {
+          current = null;
+          break;
+        }
+      }
+      
+      if (current) {
+        postData = current;
+        break;
+      }
+    }
+    
+    // If still no data, try to find any media object in the response
+    if (!postData) {
+      const findMediaObject = (obj, depth = 0) => {
+        if (depth > 5) return null; // Prevent infinite recursion
+        
+        if (obj && typeof obj === 'object') {
+          // Check if this looks like a media object
+          if (obj.__typename && (
+            obj.__typename === 'XDTGraphSidecar' || 
+            obj.__typename === 'XDTGraphVideo' || 
+            obj.__typename === 'XDTGraphImage'
+          )) {
+            return obj;
+          }
+          
+          // Recursively search in object properties
+          for (const key in obj) {
+            const result = findMediaObject(obj[key], depth + 1);
+            if (result) return result;
+          }
+        }
+        
+        return null;
+      };
+      
+      postData = findMediaObject(graphqlResp.data);
+    }
+    
+    if (!postData) {
+      // If we still don't have data, try alternative document IDs
+      if (documentId === config.DOCUMENT_ID && config.ALTERNATIVE_DOCUMENT_IDS.length > 0) {
+        for (const altDocId of config.ALTERNATIVE_DOCUMENT_IDS) {
+          try {
+            return await instagramGetPost(urlMedia, altDocId);
+          } catch (err) {
+            // Continue to the next one
+          }
+        }
+      }
+      
+   
+      
+      throw new Error('Only posts/reels supported or Instagram changed response format');
+    }
 
     const formatMedia = (media) => {
       const result = {
@@ -447,6 +553,34 @@ app.post('/api/clear-cache', (req, res) => {
 // Get cache stats endpoint (for debugging)
 app.get('/api/cache-stats', (req, res) => {
   res.json(cache.getStats());
+});
+
+// Add a test endpoint to check Instagram API status
+app.get('/api/instagram/status', async (req, res) => {
+  try {
+    // Try to fetch a known public post
+    const testUrl = 'https://www.instagram.com/p/C1WwcSvJ7XH/';
+    const result = await instagramGetPost(testUrl);
+    
+    if (result.error) {
+      return res.status(500).json({ 
+        status: 'error', 
+        message: result.error,
+        details: result.details
+      });
+    }
+    
+    return res.json({ 
+      status: 'ok', 
+      message: 'Instagram API is working correctly' 
+    });
+  } catch (err) {
+    return res.status(500).json({ 
+      status: 'error', 
+      message: err.message,
+      details: err.stack
+    });
+  }
 });
 
 app.listen(config.PORT, () => console.log(`Server running on port ${config.PORT}`));

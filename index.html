@@ -1433,398 +1433,520 @@
       }
 
       // Create video player element
-      function createVideoPlayer(media, index) {
-        // Main container
-        const container = document.createElement("div");
-        container.className =
-          "bg-gray-900 rounded-xl overflow-hidden shadow-lg hover-lift animate-fadeIn card-hover";
-        container.style.animationDelay = `${index * 0.1}s`;
+// Create video player element
+function createVideoPlayer(media, index) {
+  // Main container
+  const container = document.createElement("div");
+  container.className =
+    "bg-gray-900 rounded-xl overflow-hidden shadow-lg hover-lift animate-fadeIn card-hover";
+  container.style.animationDelay = `${index * 0.1}s`;
 
-        // Vertical aspect ratio container for Instagram reels (9:16)
-        const aspectRatioContainer = document.createElement("div");
-        aspectRatioContainer.className = "relative w-full";
-        aspectRatioContainer.style.paddingBottom = "177.78%"; // 9:16 aspect ratio
+  // Vertical aspect ratio container for Instagram reels (9:16)
+  const aspectRatioContainer = document.createElement("div");
+  aspectRatioContainer.className = "relative w-full";
+  aspectRatioContainer.style.paddingBottom = "177.78%"; // 9:16 aspect ratio
 
-        const videoWrapper = document.createElement("div");
-        videoWrapper.className = "absolute inset-0 video-container";
+  const videoWrapper = document.createElement("div");
+  videoWrapper.className = "absolute inset-0 video-container";
 
-        // Video element
-        const video = document.createElement("video");
-        video.src = getStreamUrl(media.url);
-        if (media.thumbnail) video.poster = getStreamUrl(media.thumbnail);
-        video.className = "w-full h-full object-cover";
-        video.preload = "metadata";
-        video.setAttribute("playsinline", "");
+  // Video element
+  const video = document.createElement("video");
+  video.src = getStreamUrl(media.url);
+  if (media.thumbnail) video.poster = getStreamUrl(media.thumbnail);
+  video.className = "w-full h-full object-cover";
+  video.preload = "metadata";
+  video.setAttribute("playsinline", "");
+  video.setAttribute("crossorigin", "anonymous"); // Add this for better compatibility
 
-        // Controls container
-        const controlsContainer = document.createElement("div");
-        controlsContainer.className =
-          "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 transition-all duration-300 transform translate-y-0";
+  // Loading indicator
+  const loadingIndicator = document.createElement("div");
+  loadingIndicator.className =
+    "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white";
+  loadingIndicator.innerHTML =
+    '<i class="fas fa-spinner fa-spin text-2xl"></i>';
+  loadingIndicator.style.display = "none";
 
-        // Play/pause button with animation
-        const playPauseBtn = document.createElement("button");
-        playPauseBtn.className =
-          "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-sm rounded-full w-16 h-16 flex items-center justify-center text-white hover:bg-white/30 transition-all duration-300 hover:scale-110 active:scale-95";
-        playPauseBtn.innerHTML =
-          '<i class="fas fa-play text-2xl ml-1 transition-transform duration-200"></i>';
+  // Error message
+  const errorMessage = document.createElement("div");
+  errorMessage.className =
+    "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-center hidden";
+  errorMessage.innerHTML = `
+    <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+    <p>Failed to load video</p>
+    <button class="mt-2 px-3 py-1 bg-red-600 rounded text-sm">Retry</button>
+  `;
 
-        // Progress bar with animation
-        const progressBar = document.createElement("div");
-        progressBar.className =
-          "relative h-1 bg-gray-600 rounded-full cursor-pointer mb-2 group";
+  // Controls container
+  const controlsContainer = document.createElement("div");
+  controlsContainer.className =
+    "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 transition-all duration-300 transform translate-y-0";
 
-        const progressFilled = document.createElement("div");
-        progressFilled.className =
-          "absolute left-0 top-0 h-full bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-100";
-        progressBar.appendChild(progressFilled);
+  // Play/pause button with animation
+  const playPauseBtn = document.createElement("button");
+  playPauseBtn.className =
+    "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-sm rounded-full w-16 h-16 flex items-center justify-center text-white hover:bg-white/30 transition-all duration-300 hover:scale-110 active:scale-95";
+  playPauseBtn.innerHTML =
+    '<i class="fas fa-play text-2xl ml-1 transition-transform duration-200"></i>';
 
-        // Progress handle that appears on hover
-        const progressHandle = document.createElement("div");
-        progressHandle.className =
-          "absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 scale-0 group-hover:scale-100";
-        progressFilled.appendChild(progressHandle);
+  // Progress bar with animation
+  const progressBar = document.createElement("div");
+  progressBar.className =
+    "relative h-1 bg-gray-600 rounded-full cursor-pointer mb-2 group";
 
-        // Bottom controls container
-        const bottomControls = document.createElement("div");
-        bottomControls.className =
-          "flex items-center justify-between text-white text-xs";
+  const progressFilled = document.createElement("div");
+  progressFilled.className =
+    "absolute left-0 top-0 h-full bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-100";
+  progressBar.appendChild(progressFilled);
 
-        // Time display on the left with animation
-        const timeDisplay = document.createElement("span");
-        timeDisplay.className =
-          "mr-3 font-medium transition-colors duration-200 hover:text-red-400";
-        timeDisplay.textContent = "0:00 / 0:00";
+  // Progress handle that appears on hover
+  const progressHandle = document.createElement("div");
+  progressHandle.className =
+    "absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 scale-0 group-hover:scale-100";
+  progressFilled.appendChild(progressHandle);
 
-        // Volume control on the right with animation
-        const volumeContainer = document.createElement("div");
-        volumeContainer.className = "flex items-center group";
+  // Bottom controls container
+  const bottomControls = document.createElement("div");
+  bottomControls.className =
+    "flex items-center justify-between text-white text-xs";
 
-        const volumeBtn = document.createElement("button");
-        volumeBtn.className =
-          "text-white hover:text-red-400 transition-all duration-200 mr-2 transform hover:scale-110 active:scale-95";
-        volumeBtn.innerHTML =
-          '<i class="fas fa-volume-up transition-transform duration-200"></i>';
+  // Time display on the left with animation
+  const timeDisplay = document.createElement("span");
+  timeDisplay.className =
+    "mr-3 font-medium transition-colors duration-200 hover:text-red-400";
+  timeDisplay.textContent = "0:00 / 0:00";
 
-        const volumeSlider = document.createElement("input");
-        volumeSlider.type = "range";
-        volumeSlider.min = "0";
-        volumeSlider.max = "1";
-        volumeSlider.step = "0.05";
-        volumeSlider.value = "1";
-        volumeSlider.className =
-          "w-16 h-1 bg-gray-600 rounded-full appearance-none cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-200 volume-slider";
+  // Volume control on the right with animation
+  const volumeContainer = document.createElement("div");
+  volumeContainer.className = "flex items-center group";
 
-        volumeContainer.appendChild(volumeBtn);
-        volumeContainer.appendChild(volumeSlider);
+  const volumeBtn = document.createElement("button");
+  volumeBtn.className =
+    "text-white hover:text-red-400 transition-all duration-200 mr-2 transform hover:scale-110 active:scale-95";
+  volumeBtn.innerHTML =
+    '<i class="fas fa-volume-up transition-transform duration-200"></i>';
 
-        // Assemble bottom controls
-        bottomControls.appendChild(timeDisplay);
-        bottomControls.appendChild(volumeContainer);
+  const volumeSlider = document.createElement("input");
+  volumeSlider.type = "range";
+  volumeSlider.min = "0";
+  volumeSlider.max = "1";
+  volumeSlider.step = "0.05";
+  volumeSlider.value = "1";
+  volumeSlider.className =
+    "w-16 h-1 bg-gray-600 rounded-full appearance-none cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-200 volume-slider";
 
-        // Assemble controls
-        controlsContainer.appendChild(progressBar);
-        controlsContainer.appendChild(bottomControls);
+  volumeContainer.appendChild(volumeBtn);
+  volumeContainer.appendChild(volumeSlider);
 
-        // Info bar
-        const infoBar = document.createElement("div");
-        infoBar.className =
-          "p-3 bg-gray-800 flex items-center justify-between transition-all duration-300 hover:bg-gray-750";
+  // Assemble bottom controls
+  bottomControls.appendChild(timeDisplay);
+  bottomControls.appendChild(volumeContainer);
 
-        // View count on the left with animation
-        const viewCount = document.createElement("div");
-        viewCount.className =
-          "flex items-center text-white text-sm group cursor-pointer";
-        viewCount.innerHTML = `
+  // Assemble controls
+  controlsContainer.appendChild(progressBar);
+  controlsContainer.appendChild(bottomControls);
+
+  // Info bar
+  const infoBar = document.createElement("div");
+  infoBar.className =
+    "p-3 bg-gray-800 flex items-center justify-between transition-all duration-300 hover:bg-gray-750";
+
+  // View count on the left with animation
+  const viewCount = document.createElement("div");
+  viewCount.className =
+    "flex items-center text-white text-sm group cursor-pointer";
+  viewCount.innerHTML = `
     <i class="fas fa-eye mr-2 transition-transform duration-200 group-hover:scale-110"></i>
     <span class="font-medium transition-colors duration-200 group-hover:text-red-400">${media.video_view_count ? Number(media.video_view_count).toLocaleString() : "0"} views</span>
   `;
 
-        // Action buttons container
-        const actionButtons = document.createElement("div");
-        actionButtons.className = "flex items-center space-x-2";
+  // Action buttons container
+  const actionButtons = document.createElement("div");
+  actionButtons.className = "flex items-center space-x-2";
 
-        // Download button with text and animation
-        const downloadBtn = document.createElement("button");
-        downloadBtn.className =
-          "flex items-center space-x-2 text-white bg-red-600 hover:bg-red-700 transition-all duration-300 px-3 py-2 rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 active:scale-95";
-        downloadBtn.setAttribute("aria-label", "Download video");
-        downloadBtn.innerHTML = `
+  // Download button with text and animation
+  const downloadBtn = document.createElement("button");
+  downloadBtn.className =
+    "flex items-center space-x-2 text-white bg-red-600 hover:bg-red-700 transition-all duration-300 px-3 py-2 rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 active:scale-95";
+  downloadBtn.setAttribute("aria-label", "Download video");
+  downloadBtn.innerHTML = `
     <i class="fas fa-download transition-transform duration-200"></i>
     <span class="font-medium">Download</span>
   `;
-        downloadBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const baseName = media.filename_suggest || `instagram-reel-${index}`;
-          downloadMedia(media.url, "video", baseName);
+  downloadBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const baseName = media.filename_suggest || `instagram-reel-${index}`;
+    downloadMedia(media.url, "video", baseName);
 
-          // Add a pulse animation on click
-          downloadBtn.classList.add("animate-pulse");
-          setTimeout(() => {
-            downloadBtn.classList.remove("animate-pulse");
-          }, 600);
-        });
+    // Add a pulse animation on click
+    downloadBtn.classList.add("animate-pulse");
+    setTimeout(() => {
+      downloadBtn.classList.remove("animate-pulse");
+    }, 600);
+  });
 
-        // Fullscreen button with animation
-        const fullscreenBtn = document.createElement("button");
-        fullscreenBtn.className =
-          "flex items-center text-white hover:text-red-400 transition-all duration-300 p-2 rounded-lg hover:bg-white/10 transform hover:scale-110 active:scale-95";
-        fullscreenBtn.setAttribute("aria-label", "Fullscreen");
-        fullscreenBtn.innerHTML = `
+  // Fullscreen button with animation
+  const fullscreenBtn = document.createElement("button");
+  fullscreenBtn.className =
+    "flex items-center text-white hover:text-red-400 transition-all duration-300 p-2 rounded-lg hover:bg-white/10 transform hover:scale-110 active:scale-95";
+  fullscreenBtn.setAttribute("aria-label", "Fullscreen");
+  fullscreenBtn.innerHTML = `
     <i class="fas fa-expand transition-transform duration-200"></i>
   `;
 
-        // Assemble action buttons
-        actionButtons.appendChild(downloadBtn);
-        actionButtons.appendChild(fullscreenBtn);
+  // Assemble action buttons
+  actionButtons.appendChild(downloadBtn);
+  actionButtons.appendChild(fullscreenBtn);
 
-        // Assemble player
-        videoWrapper.appendChild(video);
-        videoWrapper.appendChild(playPauseBtn);
-        videoWrapper.appendChild(controlsContainer);
-        aspectRatioContainer.appendChild(videoWrapper);
-        container.appendChild(aspectRatioContainer);
+  // Assemble player
+  videoWrapper.appendChild(video);
+  videoWrapper.appendChild(playPauseBtn);
+  videoWrapper.appendChild(controlsContainer);
+  videoWrapper.appendChild(loadingIndicator);
+  videoWrapper.appendChild(errorMessage);
+  aspectRatioContainer.appendChild(videoWrapper);
+  container.appendChild(aspectRatioContainer);
 
-        // Add elements to info bar
-        infoBar.appendChild(viewCount);
-        infoBar.appendChild(actionButtons);
-        container.appendChild(infoBar);
+  // Add elements to info bar
+  infoBar.appendChild(viewCount);
+  infoBar.appendChild(actionButtons);
+  container.appendChild(infoBar);
 
-        // Video event listeners
-        let playStartTime = null;
-        let totalWatchTime = 0;
-        let isDragging = false;
+  // Video event listeners
+  let playStartTime = null;
+  let totalWatchTime = 0;
+  let isDragging = false;
+  let isLoading = false;
+  let hasError = false;
 
-        video.addEventListener("loadedmetadata", () => {
-          timeDisplay.textContent = `0:00 / ${formatTime(video.duration)}`;
+  // Function to update play/pause button state
+  const updatePlayPauseButton = () => {
+    if (video.paused) {
+      playPauseBtn.innerHTML =
+        '<i class="fas fa-play text-2xl ml-1 transition-transform duration-200"></i>';
+    } else {
+      playPauseBtn.innerHTML =
+        '<i class="fas fa-pause text-2xl transition-transform duration-200"></i>';
+    }
+  };
+
+  // Function to show loading indicator
+  const showLoading = () => {
+    isLoading = true;
+    loadingIndicator.style.display = "block";
+    playPauseBtn.style.display = "none";
+  };
+
+  // Function to hide loading indicator
+  const hideLoading = () => {
+    isLoading = false;
+    loadingIndicator.style.display = "none";
+    playPauseBtn.style.display = "flex";
+  };
+
+  // Function to show error message
+  const showError = () => {
+    hasError = true;
+    errorMessage.style.display = "block";
+    playPauseBtn.style.display = "none";
+    loadingIndicator.style.display = "none";
+  };
+
+  // Function to hide error message
+  const hideError = () => {
+    hasError = false;
+    errorMessage.style.display = "none";
+    playPauseBtn.style.display = "flex";
+  };
+
+  // Function to play video
+  const playVideo = () => {
+    if (hasError) return;
+    
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          // Playback started successfully
+        })
+        .catch((error) => {
+          console.error("Error playing video:", error);
+          showError();
         });
+    }
+  };
 
-        video.addEventListener("timeupdate", () => {
-          if (!isDragging) {
-            const percent = (video.currentTime / video.duration) * 100;
-            progressFilled.style.width = `${percent}%`;
-            timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
-          }
-        });
+  // Function to pause video
+  const pauseVideo = () => {
+    if (hasError) return;
+    video.pause();
+  };
 
-        video.addEventListener("play", () => {
-          playPauseBtn.innerHTML =
-            '<i class="fas fa-pause text-2xl transition-transform duration-200"></i>';
-          playStartTime = Date.now();
-          videoPlayCount++;
-          trackAnalytics("video_play", {
-            play_count: videoPlayCount,
-            video_index: index,
-          });
-        });
+  // Video loading events
+  video.addEventListener("loadstart", () => {
+    showLoading();
+  });
 
-        video.addEventListener("pause", () => {
-          playPauseBtn.innerHTML =
-            '<i class="fas fa-play text-2xl ml-1 transition-transform duration-200"></i>';
-          if (playStartTime) {
-            totalWatchTime += Date.now() - playStartTime;
-            playStartTime = null;
-          }
-        });
+  video.addEventListener("canplay", () => {
+    hideLoading();
+    hideError();
+  });
 
-        video.addEventListener("ended", () => {
-          playPauseBtn.innerHTML =
-            '<i class="fas fa-play text-2xl ml-1 transition-transform duration-200"></i>';
-          if (playStartTime) {
-            totalWatchTime += Date.now() - playStartTime;
-            playStartTime = null;
-          }
-          trackAnalytics("video_complete", {
-            video_index: index,
-            total_watch_time: Math.round(totalWatchTime / 1000),
-          });
-        });
+  video.addEventListener("loadedmetadata", () => {
+    timeDisplay.textContent = `0:00 / ${formatTime(video.duration)}`;
+  });
 
-        // Control event listeners
-        playPauseBtn.addEventListener("click", () => {
-          video.paused ? video.play() : video.pause();
+  video.addEventListener("waiting", () => {
+    showLoading();
+  });
 
-          // Add bounce animation
-          playPauseBtn.classList.add("animate-bounce");
-          setTimeout(() => {
-            playPauseBtn.classList.remove("animate-bounce");
-          }, 500);
-        });
+  video.addEventListener("playing", () => {
+    hideLoading();
+  });
 
-        // Progress bar interaction
-        const updateProgress = (e) => {
-          const rect = progressBar.getBoundingClientRect();
-          const pos = (e.clientX - rect.left) / rect.width;
-          video.currentTime = pos * video.duration;
-        };
+  video.addEventListener("error", () => {
+    showError();
+  });
 
-        progressBar.addEventListener("mousedown", (e) => {
-          isDragging = true;
-          progressBar.classList.add("scale-y-150");
-          updateProgress(e);
-        });
+  video.addEventListener("timeupdate", () => {
+    if (!isDragging) {
+      const percent = (video.currentTime / video.duration) * 100;
+      progressFilled.style.width = `${percent}%`;
+      timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+    }
+  });
 
-        document.addEventListener("mousemove", (e) => {
-          if (isDragging) updateProgress(e);
-        });
+  video.addEventListener("play", () => {
+    updatePlayPauseButton();
+    playStartTime = Date.now();
+    videoPlayCount++;
+    trackAnalytics("video_play", {
+      play_count: videoPlayCount,
+      video_index: index,
+    });
+  });
 
-        document.addEventListener("mouseup", () => {
-          if (isDragging) {
-            isDragging = false;
-            progressBar.classList.remove("scale-y-150");
-          }
-        });
+  video.addEventListener("pause", () => {
+    updatePlayPauseButton();
+    if (playStartTime) {
+      totalWatchTime += Date.now() - playStartTime;
+      playStartTime = null;
+    }
+  });
 
-        // Touch support
-        progressBar.addEventListener("touchstart", (e) => {
-          isDragging = true;
-          const touch = e.touches[0];
-          updateProgress(touch);
-        });
+  video.addEventListener("ended", () => {
+    updatePlayPauseButton();
+    if (playStartTime) {
+      totalWatchTime += Date.now() - playStartTime;
+      playStartTime = null;
+    }
+    trackAnalytics("video_complete", {
+      video_index: index,
+      total_watch_time: Math.round(totalWatchTime / 1000),
+    });
+  });
 
-        document.addEventListener("touchmove", (e) => {
-          if (isDragging) {
-            const touch = e.touches[0];
-            updateProgress(touch);
-          }
-        });
+  // Control event listeners
+  playPauseBtn.addEventListener("click", () => {
+    if (video.paused) {
+      playVideo();
+    } else {
+      pauseVideo();
+    }
 
-        document.addEventListener("touchend", () => {
-          isDragging = false;
-        });
+    // Add bounce animation
+    playPauseBtn.classList.add("animate-bounce");
+    setTimeout(() => {
+      playPauseBtn.classList.remove("animate-bounce");
+    }, 500);
+  });
 
-        // Volume control with animation
-        volumeBtn.addEventListener("click", () => {
-          if (video.volume > 0) {
-            video.volume = 0;
-            volumeSlider.value = 0;
-            volumeBtn.innerHTML =
-              '<i class="fas fa-volume-mute transition-transform duration-200"></i>';
-          } else {
-            video.volume = 1;
-            volumeSlider.value = 1;
-            volumeBtn.innerHTML =
-              '<i class="fas fa-volume-up transition-transform duration-200"></i>';
-          }
+  // Retry button in error message
+  const retryBtn = errorMessage.querySelector("button");
+  retryBtn.addEventListener("click", () => {
+    hideError();
+    video.load();
+  });
 
-          // Add rotation animation
-          volumeBtn.querySelector("i").classList.add("animate-spin");
-          setTimeout(() => {
-            volumeBtn.querySelector("i").classList.remove("animate-spin");
-          }, 300);
-        });
+  // Progress bar interaction
+  const updateProgress = (e) => {
+    const rect = progressBar.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    video.currentTime = pos * video.duration;
+  };
 
-        volumeSlider.addEventListener("input", () => {
-          video.volume = volumeSlider.value;
-          const icon =
-            video.volume == 0
-              ? "fa-volume-mute"
-              : video.volume < 0.5
-                ? "fa-volume-down"
-                : "fa-volume-up";
-          volumeBtn.innerHTML = `<i class="fas ${icon} transition-transform duration-200"></i>`;
-        });
+  progressBar.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    progressBar.classList.add("scale-y-150");
+    updateProgress(e);
+  });
 
-        // Fullscreen with animation
-        fullscreenBtn.addEventListener("click", () => {
-          if (!document.fullscreenElement) {
-            videoWrapper.requestFullscreen();
-            fullscreenBtn.innerHTML =
-              '<i class="fas fa-compress transition-transform duration-200"></i>';
-          } else {
-            document.exitFullscreen();
-            fullscreenBtn.innerHTML =
-              '<i class="fas fa-expand transition-transform duration-200"></i>';
-          }
+  document.addEventListener("mousemove", (e) => {
+    if (isDragging) updateProgress(e);
+  });
 
-          // Add flip animation
-          fullscreenBtn.querySelector("i").classList.add("animate-flip");
-          setTimeout(() => {
-            fullscreenBtn.querySelector("i").classList.remove("animate-flip");
-          }, 300);
-        });
+  document.addEventListener("mouseup", () => {
+    if (isDragging) {
+      isDragging = false;
+      progressBar.classList.remove("scale-y-150");
+    }
+  });
 
-        // Show/hide controls with animation
-        let controlsTimeout;
+  // Touch support
+  progressBar.addEventListener("touchstart", (e) => {
+    isDragging = true;
+    const touch = e.touches[0];
+    updateProgress(touch);
+  });
 
-        const showControls = () => {
-          controlsContainer.classList.remove("opacity-0", "translate-y-2");
-          controlsContainer.classList.add("opacity-100", "translate-y-0");
-          playPauseBtn.classList.remove("opacity-0", "scale-90");
-          playPauseBtn.classList.add("opacity-100", "scale-100");
-        };
+  document.addEventListener("touchmove", (e) => {
+    if (isDragging) {
+      const touch = e.touches[0];
+      updateProgress(touch);
+    }
+  });
 
-        const hideControls = () => {
-          if (!video.paused) {
-            controlsContainer.classList.remove("opacity-100", "translate-y-0");
-            controlsContainer.classList.add("opacity-0", "translate-y-2");
-            playPauseBtn.classList.remove("opacity-100", "scale-100");
-            playPauseBtn.classList.add("opacity-0", "scale-90");
-          }
-        };
+  document.addEventListener("touchend", () => {
+    isDragging = false;
+  });
 
-        videoWrapper.addEventListener("mouseenter", () => {
-          showControls();
-          clearTimeout(controlsTimeout);
-        });
+  // Volume control with animation
+  volumeBtn.addEventListener("click", () => {
+    if (video.volume > 0) {
+      video.volume = 0;
+      volumeSlider.value = 0;
+      volumeBtn.innerHTML =
+        '<i class="fas fa-volume-mute transition-transform duration-200"></i>';
+    } else {
+      video.volume = 1;
+      volumeSlider.value = 1;
+      volumeBtn.innerHTML =
+        '<i class="fas fa-volume-up transition-transform duration-200"></i>';
+    }
 
-        videoWrapper.addEventListener("mouseleave", () => {
-          controlsTimeout = setTimeout(hideControls, 2000);
-        });
+    // Add rotation animation
+    volumeBtn.querySelector("i").classList.add("animate-spin");
+    setTimeout(() => {
+      volumeBtn.querySelector("i").classList.remove("animate-spin");
+    }, 300);
+  });
 
-        video.addEventListener("touchstart", () => {
-          showControls();
-          clearTimeout(controlsTimeout);
-          controlsTimeout = setTimeout(hideControls, 3000);
-        });
+  volumeSlider.addEventListener("input", () => {
+    video.volume = volumeSlider.value;
+    const icon =
+      video.volume == 0
+        ? "fa-volume-mute"
+        : video.volume < 0.5
+          ? "fa-volume-down"
+          : "fa-volume-up";
+    volumeBtn.innerHTML = `<i class="fas ${icon} transition-transform duration-200"></i>`;
+  });
 
-        // Keyboard shortcuts
-        document.addEventListener("keydown", (e) => {
-          if (!isElementInViewport(video)) return;
+  // Fullscreen with animation
+  fullscreenBtn.addEventListener("click", () => {
+    if (!document.fullscreenElement) {
+      videoWrapper.requestFullscreen();
+      fullscreenBtn.innerHTML =
+        '<i class="fas fa-compress transition-transform duration-200"></i>';
+    } else {
+      document.exitFullscreen();
+      fullscreenBtn.innerHTML =
+        '<i class="fas fa-expand transition-transform duration-200"></i>';
+    }
 
-          switch (e.key) {
-            case " ":
-              e.preventDefault();
-              video.paused ? video.play() : video.pause();
-              break;
-            case "ArrowRight":
-              video.currentTime += 5;
-              break;
-            case "ArrowLeft":
-              video.currentTime -= 5;
-              break;
-            case "ArrowUp":
-              video.volume = Math.min(1, video.volume + 0.1);
-              volumeSlider.value = video.volume;
-              break;
-            case "ArrowDown":
-              video.volume = Math.max(0, video.volume - 0.1);
-              volumeSlider.value = video.volume;
-              break;
-            case "f":
-              fullscreenBtn.click();
-              break;
-            case "m":
-              volumeBtn.click();
-              break;
-          }
-        });
+    // Add flip animation
+    fullscreenBtn.querySelector("i").classList.add("animate-flip");
+    setTimeout(() => {
+      fullscreenBtn.querySelector("i").classList.remove("animate-flip");
+    }, 300);
+  });
 
-        return container;
-      }
+  // Show/hide controls with animation
+  let controlsTimeout;
 
-      // Helper function to check if element is in viewport
-      function isElementInViewport(el) {
-        const rect = el.getBoundingClientRect();
-        return (
-          rect.top >= 0 &&
-          rect.left >= 0 &&
-          rect.bottom <=
-            (window.innerHeight || document.documentElement.clientHeight) &&
-          rect.right <=
-            (window.innerWidth || document.documentElement.clientWidth)
-        );
-      }
+  const showControls = () => {
+    if (isLoading || hasError) return;
+    
+    controlsContainer.classList.remove("opacity-0", "translate-y-2");
+    controlsContainer.classList.add("opacity-100", "translate-y-0");
+    playPauseBtn.classList.remove("opacity-0", "scale-90");
+    playPauseBtn.classList.add("opacity-100", "scale-100");
+  };
 
+  const hideControls = () => {
+    if (!video.paused || isLoading || hasError) return;
+    
+    controlsContainer.classList.remove("opacity-100", "translate-y-0");
+    controlsContainer.classList.add("opacity-0", "translate-y-2");
+    playPauseBtn.classList.remove("opacity-100", "scale-100");
+    playPauseBtn.classList.add("opacity-0", "scale-90");
+  };
+
+  videoWrapper.addEventListener("mouseenter", () => {
+    showControls();
+    clearTimeout(controlsTimeout);
+  });
+
+  videoWrapper.addEventListener("mouseleave", () => {
+    controlsTimeout = setTimeout(hideControls, 2000);
+  });
+
+  video.addEventListener("touchstart", () => {
+    showControls();
+    clearTimeout(controlsTimeout);
+    controlsTimeout = setTimeout(hideControls, 3000);
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener("keydown", (e) => {
+    if (!isElementInViewport(video)) return;
+
+    switch (e.key) {
+      case " ":
+        e.preventDefault();
+        if (video.paused) {
+          playVideo();
+        } else {
+          pauseVideo();
+        }
+        break;
+      case "ArrowRight":
+        video.currentTime += 5;
+        break;
+      case "ArrowLeft":
+        video.currentTime -= 5;
+        break;
+      case "ArrowUp":
+        video.volume = Math.min(1, video.volume + 0.1);
+        volumeSlider.value = video.volume;
+        break;
+      case "ArrowDown":
+        video.volume = Math.max(0, video.volume - 0.1);
+        volumeSlider.value = video.volume;
+        break;
+      case "f":
+        fullscreenBtn.click();
+        break;
+      case "m":
+        volumeBtn.click();
+        break;
+    }
+  });
+
+  return container;
+}
+
+// Helper function to check if element is in viewport
+function isElementInViewport(el) {
+  const rect = el.getBoundingClientRect();
+  return (
+    rect.top >= 0 &&
+    rect.left >= 0 &&
+    rect.bottom <=
+      (window.innerHeight || document.documentElement.clientHeight) &&
+    rect.right <=
+      (window.innerWidth || document.documentElement.clientWidth)
+  );
+}
       // Add custom animations to your CSS
       const style = document.createElement("style");
       style.textContent = `
